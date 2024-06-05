@@ -10,20 +10,6 @@ import warnings
 # Suppress the specific UserWarning from Matplotlib
 warnings.filterwarnings("ignore", message=".*Starting a Matplotlib GUI outside of the main thread will likely fail.*")
 
-def handle_plot2(label, data):
-    label.config(text="Plot2 functionality to be added here.")
-
-def handle_plot3(label, data):
-    label.config(text="Plot3 functionality to be added here.")
-
-def handle_plot4(label, data):
-    label.config(text="Plot4 functionality to be added here.")
-
-def handle_plot5(label, data):
-    label.config(text="Plot5 functionality to be added here.")
-
-def handle_exit():
-    exit()
 
 def unzip_files(zip_path, extract_to):
     import zipfile
@@ -51,14 +37,18 @@ def select_zip_files(root):
     messagebox.showinfo("Success", f"Extracted files to {extract_to}")
     return True
 
-def plot_data_thread(label, probe_file_path, data):
-    # This function will run in a separate thread
-    if plot_data(label, probe_file_path, data):
-        label.config(text="Finished plotting succesfully.")
-        return True
-    else:
-        label.config(text="Error plotting.")
+def plot_data1_thread(label, probe_file_path, data):
+    try:
+        if plot_data1(label, probe_file_path, data):
+            label.config(text="Finished plotting successfully.")
+            return True
+        else:
+            label.config(text="Error plotting.")
+            return False
+    except Exception as e:
+        label.config(text=f"Error plotting: {e}")
         return False
+    
 
 def handle_plot1(label, data):
     probe_file_path = filedialog.askopenfilename(initialdir='unzipped_contents', title="Select Probe File", filetypes=[("All files", "*.*")])
@@ -68,17 +58,59 @@ def handle_plot1(label, data):
     label.config(text=f"Selected probe file: {get_color(probe_file_path)}")
     label.config(text="Processing 1D plots for all wells...")
     # Create and start a new thread for plot_data
-    thread = threading.Thread(target=plot_data_thread, args=(label, probe_file_path, data))
+    thread = threading.Thread(target=plot_data1_thread, args=(label, probe_file_path, data))
     thread.start()
 
-def plot_data(label, file_path, well_names):
+def plot_data2_thread(label, probe_file_path1, probe_file_path2, data):
+    try:
+        if plot_data2(label, probe_file_path1, probe_file_path2, data):
+            label.config(text="Finished plotting 2D successfully")
+            return True
+        else:
+            label.config(text="Error plotting.")
+            return False
+    except Exception as e:
+        label.config(text=f"Error plotting: {e}")
+        return False
+
+    
+def handle_plot2(label, data):
+    probe_file_path1 = filedialog.askopenfilename(initialdir='unzipped_contents', title="Select First Probe File", filetypes=[("All files", "*.*")])
+    if not probe_file_path1:
+        messagebox.showerror("Error", "No first file selected")
+        return
+
+    probe_file_path2 = filedialog.askopenfilename(initialdir='unzipped_contents', title="Select Second Probe File", filetypes=[("All files", "*.*")])
+    if not probe_file_path2:
+        messagebox.showerror("Error", "No second file selected")
+        return
+
+    label.config(text=f"Selected probe files: {get_color(probe_file_path1)}, {get_color(probe_file_path2)}")
+    label.config(text="Processing 2D plots for all wells...")
+    # Create and start a new thread for plot_data2_thread
+    thread = threading.Thread(target=plot_data2_thread, args=(label, probe_file_path1, probe_file_path2, data))
+    thread.start()
+
+def handle_plot3(label, data):
+    label.config(text="Plot3 functionality to be added here.")
+
+def handle_plot4(label, data):
+    label.config(text="Plot4 functionality to be added here.")
+
+def handle_plot5(label, data):
+    label.config(text="Plot5 functionality to be added here.")
+
+def handle_exit():
+    exit()
+
+def plot_data1(label, file_path, well_names):
     # label.config(text="Processing 1D plots for all wells.")
     with open(file_path, 'r') as file:
         first_line = file.readline().strip()
         skip_first_line = 'sep=' in first_line
 
     reader = pd.read_csv(file_path, delimiter=',', skiprows=1 if skip_first_line else 0, chunksize=10000)
-    output_dir = f"1D_plot_{get_color(file_path)}"
+    output_dir = f"1D_plots_{get_color(file_path)}"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -131,3 +163,126 @@ def plot_data(label, file_path, well_names):
         plt.savefig(os.path.join(output_dir, f'{get_color(file_path)}_plot_{plot_count}_{well_name}.png'))
         plt.close()
     return True
+
+
+def plot_data2(label, file_path1, file_path2, well_names):
+    
+    def read_file(file_path):
+        with open(file_path, 'r') as file:
+            first_line = file.readline().strip()
+            skip_first_line = 'sep=' in first_line
+        
+        reader = pd.read_csv(file_path, delimiter=',', skiprows=1 if skip_first_line else 0, chunksize=10000)
+        return reader
+    
+    reader1 = read_file(file_path1)
+    reader2 = read_file(file_path2)
+    probe1 = get_color(file_path1)
+    probe2 = get_color(file_path2)
+    
+    output_dir = f"2D_plots_{probe1}_{probe2}"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    current_well = None
+    rfus1_above = []
+    rfus2_above = []
+    rfus1_below = []
+    rfus2_below = []
+    rfus1_above_below = []
+    rfus2_above_below = []
+    rfus1_below_above = []
+    rfus2_below_above = []
+    ab_ab = 0
+    ab_bl = 0
+    bl_ab = 0
+    bl_bl = 0
+    invalid_x = 0
+    invalid_y = 0
+    threshold1 = None
+    threshold2 = None
+    plot_count = 0
+
+
+    def plot_2d_scatter(well, threshold1, threshold2, output_dir, plot_count):
+        plt.figure()
+        plt.scatter(rfus1_above, rfus2_above, color='red', alpha=0.8)
+        plt.scatter(rfus1_above_below, rfus2_above_below, color=probe1[0], alpha=0.5)
+        plt.scatter(rfus1_below_above, rfus2_below_above, color=probe2[0], alpha=0.5)
+        plt.scatter(rfus1_below, rfus2_below, color='gray', alpha=0.3)
+        # \nInvalid {probe1} {invalid_x}\nInvalid {probe2} {invalid_y}
+        plt.axhline(y=threshold2, color=probe2[0], linestyle='--', linewidth=1)
+        plt.axvline(x=threshold1, color=probe1[0], linestyle='--', linewidth=1)
+        plt.xlabel(f'{probe1} Probe RFU')
+        plt.ylabel(f'{probe2} Probe RFU')
+        plt.title(f'{probe1} vs {probe2} 2D Scatter Plot for Well {well}')
+
+        legend_labels = [
+            f'+ {probe1} + {probe2} | {ab_ab}',
+            f'+ {probe1}, - {probe2} | {ab_bl}',
+            f'- {probe1}, + {probe2} | {bl_ab}',
+            f'- {probe1}, - {probe2} | {bl_bl}',
+            f'Invalid {probe1} | {invalid_x}',
+            f'Invalid {probe2} | {invalid_y}'
+        ]
+
+        colors = ['red', probe1[0], probe2[0], 'gray', 'white', 'white']
+
+        for label, color in zip(legend_labels, colors):
+            plt.scatter([], [], color=color, label=label)
+        plt.legend()
+        plt.savefig(os.path.join(output_dir, f'{probe1}_{probe2}_plot_{plot_count}_{well}.png'))
+        plt.close()
+    
+
+    for chunk1, chunk2 in zip(reader1, reader2):
+        for index, (row1, row2) in enumerate(zip(chunk1.iterrows(), chunk2.iterrows())):
+            row1 = row1[1]  # Unpack the actual row data from the tuple
+            row2 = row2[1]  # Unpack the actual row data from the tuple
+
+            if current_well is None or row1['Well'] != current_well:
+                if rfus1_above or rfus1_below or rfus1_above_below or rfus1_below_above:
+                    well_name = well_names.get(current_well, current_well)  # Get well name from well_names dict
+                    plot_2d_scatter(well_name, threshold1, threshold2, output_dir, plot_count)
+                    rfus1_above = []
+                    rfus2_above = []
+                    rfus1_below = []
+                    rfus2_below = []
+                    rfus1_above_below = []
+                    rfus2_above_below = []
+                    rfus1_below_above = []
+                    rfus2_below_above = []
+                    invalid_x = invalid_y = ab_ab = ab_bl = bl_ab = bl_bl = 0
+                    plot_count += 1
+                current_well = row1['Well']
+                threshold1 = row1['Threshold']
+                threshold2 = row2['Threshold']
+                
+            if 'RFU' in row1 and pd.notna(row1['RFU']) and 'RFU' in row2 and pd.notna(row2['RFU']):
+                if row1['RFU'] > threshold1 and row2['RFU'] > threshold2:
+                    rfus1_above.append(row1['RFU'])
+                    rfus2_above.append(row2['RFU'])
+                    ab_ab += 1
+                elif row1['RFU'] > threshold1 and row2['RFU'] <= threshold2:
+                    rfus1_above_below.append(row1['RFU'])
+                    rfus2_above_below.append(row2['RFU'])
+                    ab_bl += 1
+                elif row1['RFU'] <= threshold1 and row2['RFU'] > threshold2:
+                    rfus1_below_above.append(row1['RFU'])
+                    rfus2_below_above.append(row2['RFU'])
+                    bl_ab += 1
+                else:
+                    rfus1_below.append(row1['RFU'])
+                    rfus2_below.append(row2['RFU'])
+                    bl_bl += 1
+            elif 'RFU' in row1 and not pd.notna(row1['RFU']):
+                invalid_x += 1
+            elif 'RFU' in row2 and not pd.notna(row2['RFU']):
+                invalid_y += 1
+
+    # Handle the last set of RFUs collected
+    if rfus1_above or rfus1_below or rfus1_above_below or rfus1_below_above:
+        well_name = well_names.get(current_well, current_well)  # Get well name from well_names dict
+        plot_2d_scatter(well_name, threshold1, threshold2, output_dir, plot_count)
+    return True
+

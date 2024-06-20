@@ -1,7 +1,7 @@
 import os
 import shutil
-from tkinter import filedialog, messagebox
-from helper_functions import get_color, default_well_matrix, map_indices
+from tkinter import filedialog, messagebox, simpledialog
+from helper_functions import get_color, default_well_matrix, map_indices, get_calibrated_threshold
 import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
@@ -38,9 +38,9 @@ def select_zip_files(root):
     messagebox.showinfo("Success", f"Extracted files to {extract_to}")
     return True
 
-def plot_data1_thread(label, probe_file_path, data):
+def plot_data1_thread(label, probe_file_path, data, threshold_type):
     try:
-        if plot_data1(label, probe_file_path, data):
+        if plot_data1(label, probe_file_path, data, threshold_type):
             label.config(text="Finished plotting successfully.")
             return True
         else:
@@ -56,9 +56,18 @@ def handle_plot1(label, data):
         messagebox.showerror("Error", "No file selected")
         return
     label.config(text=f"Selected probe file: {get_color(probe_file_path)}")
+
+    threshold_type = simpledialog.askstring("Input", "Enter threshold type (1 for default, 2 for calibrated):")
+    if threshold_type not in ["1", "2"]:
+        messagebox.showerror("Error", "Invalid threshold type. Please enter '1' for default or '2' for calibrated.")
+        return
+
+    threshold_type = "default" if threshold_type == "1" else "calibrated"
+
+    
     label.config(text="Processing 1D plots for all wells...")
     # Create and start a new thread for plot_data
-    thread = threading.Thread(target=plot_data1_thread, args=(label, probe_file_path, data))
+    thread = threading.Thread(target=plot_data1_thread, args=(label, probe_file_path, data, threshold_type))
     thread.start()
 
 def plot_data2_thread(label, probe_file_path1, probe_file_path2, data):
@@ -133,7 +142,7 @@ def handle_plot5(label, data):
 def handle_exit():
     exit()
 
-def plot_data1(label, file_path, well_names):
+def plot_data1(label, file_path, well_names, threshold_type):
     # label.config(text="Processing 1D plots for all wells.")
     with open(file_path, 'r') as file:
         first_line = file.readline().strip()
@@ -155,8 +164,14 @@ def plot_data1(label, file_path, well_names):
             if current_well is None or row['Well'] != current_well:
                 if rfus:
                     well_name = well_names.get(current_well, current_well)  # Get well name from well_names dict
-                    if threshold is None and 'Threshold' in chunk.columns:
-                        threshold = row['Threshold']
+                    # threshold handle
+                    if threshold_type == 'default':
+                        if threshold is None and 'Threshold' in chunk.columns:
+                            threshold = row['Threshold']
+                    else:
+                        print(threshold_type)
+                        print("entering th calibration....")
+                        threshold = get_calibrated_threshold(label, file_path, well_names)
                     # Assign indeces acording to dPCR device logic
                     # x_indices = map_indices(rfus) # -> [0->0],[1->80],[2->160],...
                     x_indices = [(i % 80) + 1 for i in range(len(rfus))] # -> [1-80], [1-80],...

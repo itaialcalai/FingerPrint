@@ -1,7 +1,8 @@
 import os
 import shutil
 from tkinter import filedialog, messagebox, simpledialog
-from helper_functions import get_color, default_well_matrix, map_indices, get_calibrated_threshold
+from helper_functions import get_color, default_well_matrix
+from threshold_calibration import get_calibrated_threshold
 import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
@@ -47,7 +48,8 @@ def plot_data1_thread(label, probe_file_path, data, threshold_type):
             label.config(text="Error plotting.")
             return False
     except Exception as e:
-        label.config(text=f"Error plotting: {e}")
+        print(e)
+        label.config(text=f"Error Plotting: {e}")
         return False
     
 def handle_plot1(label, data):
@@ -155,6 +157,7 @@ def plot_data1(label, file_path, well_names, threshold_type):
 
     current_well = None
     rfus = []
+    calibrated_threshold_flag = True
     threshold = None
     plot_count = 0
 
@@ -169,9 +172,12 @@ def plot_data1(label, file_path, well_names, threshold_type):
                         if threshold is None and 'Threshold' in chunk.columns:
                             threshold = row['Threshold']
                     else:
-                        print(threshold_type)
-                        print("entering th calibration....")
-                        threshold = get_calibrated_threshold(label, file_path, well_names)
+                        if threshold is None:
+                            event = threading.Event()
+                            threshold = get_calibrated_threshold(label, file_path, well_names, event)
+                            event.wait()
+                            calibrated_threshold_flag = True
+                    print(f"continuing to plot with calibrated threshold: ", threshold)
                     # Assign indeces acording to dPCR device logic
                     # x_indices = map_indices(rfus) # -> [0->0],[1->80],[2->160],...
                     x_indices = [(i % 80) + 1 for i in range(len(rfus))] # -> [1-80], [1-80],...
@@ -187,8 +193,9 @@ def plot_data1(label, file_path, well_names, threshold_type):
                     rfus = []
                     plot_count += 1
                 current_well = row['Well']
-                if row['Threshold'] != threshold:
-                    threshold = row['Threshold']
+                if not calibrated_threshold_flag:
+                    if row['Threshold'] != threshold:
+                        threshold = row['Threshold']
                 
             if 'RFU' in row and pd.notna(row['RFU']):
                 rfus.append(row['RFU'])

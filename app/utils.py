@@ -16,3 +16,31 @@ def create_well_name_dict(user_input_matrix):
             default_well_name = default_well_matrix[i][j]
             well_name_dict[default_well_name] = well_name
     return well_name_dict
+
+def get_color(file_path: str) -> str:
+    # Step 1: Remove all characters from the right to the last '\'
+    last_slash_index = file_path.rfind('\\')
+    if last_slash_index == -1:
+        last_slash_index = file_path.rfind('/')  # In case it's a forward slash
+
+    if last_slash_index != -1:
+        file_path = file_path[last_slash_index + 1:]
+
+    # Step 2: Count 3 '_' chars and delete everything including the third one
+    underscore_count = 0
+    for i, char in enumerate(file_path):
+        if char == '_':
+            underscore_count += 1
+        if underscore_count == 4:
+            file_path = file_path[:i]
+            break
+    
+    # Step 3: Return the string from start to the next '_'
+    i = 3
+    while i > 0:
+        next_underscore_index = file_path.find('_')
+        if next_underscore_index != -1:
+            file_path =  file_path[next_underscore_index + 1:]
+            i -= 1
+
+    return file_path

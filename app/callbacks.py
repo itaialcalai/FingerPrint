@@ -1,4 +1,5 @@
 import dash
+from dash import html, dcc
 from dash.dependencies import Input, Output, State
 from dash import html, dcc
 import base64
@@ -78,6 +79,7 @@ def register_callbacks(app):
     @app.callback(
         Output("initial-screen", "children", allow_duplicate=True),
         Output("wells-selection-screen", "style", allow_duplicate=True),
+        Output("well-names-store", "data"),
         Input("apply-wells", "n_clicks"),
         [State(f"well-{row}-{col}", "value") for row in range(8) for col in range(3)],
         State("control-well-positive", "value"),
@@ -105,9 +107,10 @@ def register_callbacks(app):
                     dbc.Col(dbc.Button("Plot 2D", id="plot-2d", color="primary", style={"marginTop": "20px"}), width={"size": 2}),
                     dbc.Col(dbc.Button("Plot 3D", id="plot-3d", color="primary", style={"marginTop": "20px"}), width={"size": 2})
                 ])
-            ]), {"display": "none"}
+            ]), {"display": "none"}, well_names
 
-        return "", {"display": "block"}
+        return "", {"display": "block"}, dash.no_update
     
     # Register plot-related callbacks
     register_plot_callbacks(app)
+

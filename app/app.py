@@ -40,7 +40,8 @@ app.layout = dbc.Container([
             ]),
             html.Div(id="wells-selection-screen", style={"display": "none"})
         ], width=12)
-    ])
+    ]),
+    dcc.Store(id="well-names-store")
 ])
 
 # Register callbacks

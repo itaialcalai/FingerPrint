@@ -17,7 +17,7 @@ app.layout = dbc.Container([
     dbc.Row([
         dbc.Col([
             html.Div(id="initial-screen", children=[
-                html.Label("Please select zipped data working dir", style={"marginTop": "20px"}),
+                html.Label("Please select zipped working directory", style={"marginTop": "20px"}),
                 dcc.Upload(
                     id="upload-data",
                     children=html.Div([
@@ -48,3 +48,4 @@ register_callbacks(app)
 
 if __name__ == "__main__":
     app.run_server(debug=True)
+

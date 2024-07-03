@@ -6,7 +6,6 @@ from utils import default_well_matrix
 
 def get_calibrated_threshold(file, names, ds):
     threshold = None
-    print(f'in get calibration control', ds)
 
     # Extracting values
     pc = ds.get('positive')
@@ -38,7 +37,6 @@ def extract_rfu_values(file_path, chosen_wells):
     well_data = {well: [] for well in chosen_wells}
     
     # Read the CSV file in chunks to handle large file sizes
-    print("Procseing file..")
     for chunk in reader:
         for index, row in chunk.iterrows():
         # Iterate through the chunk to find rows with the chosen wells
@@ -49,8 +47,6 @@ def extract_rfu_values(file_path, chosen_wells):
 
 
 def calibrate_threshold(data, well_names):
-    print("Calibrating...")
-    
     # Retrieve values from data dictionary
     pc_values = np.array(data[well_names[0]])
     mixpc_values = np.array(data[well_names[1]])

@@ -6,7 +6,7 @@ import io
 import zipfile
 import dash_bootstrap_components as dbc
 from utils import create_well_name_dict
-from plot_actions import register_plot1_callbacks
+from plot1_actions import register_plot1_callbacks
 from plot2_actions import register_plot2_callbacks
 from plot3_actions import register_plot3_callbacks
 

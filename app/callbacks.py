@@ -6,7 +6,9 @@ import io
 import zipfile
 import dash_bootstrap_components as dbc
 from utils import create_well_name_dict
-from plot_actions import register_plot_callbacks
+from plot_actions import register_plot1_callbacks
+from plot2_actions import register_plot2_callbacks
+from plot3_actions import register_plot3_callbacks
 
 def register_callbacks(app):
     @app.callback(
@@ -102,7 +104,6 @@ def register_callbacks(app):
                 "negative": control_well_negative
             }
             init_well_data = (well_names, control_wells)
-            print(f"Control wells set: {control_wells}")  # Debug statement
             return html.Div([
                 html.H3("Init Complete Successfully!", style={"color": "green", "textAlign": "center", "marginTop": "20px"}),
                 html.Div(f"Positive Control Well: {control_well_positive}", style={"textAlign": "center"}),
@@ -117,5 +118,9 @@ def register_callbacks(app):
             ]), {"display": "none"}, init_well_data
         return "", {"display": "block"}, dash.no_update
     
-    # Register plot-related callbacks
-    register_plot_callbacks(app)
+    # Register plot1D-related callbacks
+    register_plot1_callbacks(app)
+    # Register plot2D-related callbacks
+    register_plot2_callbacks(app)
+    # Register plot3D-related callbacks
+    register_plot3_callbacks(app)

@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import threading
 from utils import get_color
+from threshold_calibration import get_calibrated_threshold
 import warnings
 
 # Suppress the specific Matplotlib warning
@@ -37,10 +38,11 @@ def plot_1d_layout():
         ]),
         html.Div(id="plot-output", style={"textAlign": "center", "marginTop": "20px"}),
         dcc.Store(id="plot-status-store"),  # Store for plot status
+        dcc.Store(id="control-wells-store"),  # Store for control well names
         dcc.Interval(id="plot-check-interval", interval=1000, n_intervals=0)  # Interval to check the plot status
     ])
 
-def plot_data1(file_path, well_names, threshold_type):
+def plot_data1(file_path, well_names, threshold_type, control_wells=None):
     with open(file_path, 'r') as file:
         first_line = file.readline().strip()
         skip_first_line = 'sep=' in first_line
@@ -61,13 +63,16 @@ def plot_data1(file_path, well_names, threshold_type):
                 if rfus:
                     well_name = well_names.get(current_well, current_well)  # Get well name from well_names dict
                     # threshold handle
+                    print(f'threshold_type is ', threshold_type)
                     if threshold_type == 'default':
+                        print("WTF")
                         if threshold is None and 'Threshold' in chunk.columns:
                             threshold = row['Threshold']
                     else:
-                        if threshold is None:
-                            # threshold = get_calibrated_threshold(file_path, well_names)
-                            threshold = 0.1
+                        print(f'checking if control wells', control_wells)
+                        if threshold is None and control_wells:
+                            print("going in get calibrated")
+                            threshold = get_calibrated_threshold(file_path, well_names, control_wells)
                     # Assign indices according to dPCR device logic
                     x_indices = [(i % 80) + 1 for i in range(len(rfus))]  # -> [1-80], [1-80],...
                     plt.figure(figsize=(10, 6))
@@ -108,34 +113,65 @@ def register_plot_callbacks(app):
     @app.callback(
         Output("initial-screen", "children", allow_duplicate=True),
         Input("plot-1d", "n_clicks"),
+        [State("well-names-store", "data")],
         prevent_initial_call=True
     )
-    def plot_1d_screen(n_clicks):
+    def plot_1d_screen(n_clicks, data):
         if n_clicks:
+            control_wells = data[1]
+            names = data[0]
+            print(f'Control in screen: {control_wells}')
+            print(f'Names in screen: {names}')
             return plot_1d_layout()
         return dash.no_update
 
     @app.callback(
         [Output("plot-output", "children"),
          Output("plot-status-store", "data")],
-        Input("default-threshold", "n_clicks"),
-        State("file-dropdown", "value"),
-        State("well-names-store", "data"),
+        [Input("default-threshold", "n_clicks"),
+         Input("calibrated-threshold", "n_clicks")],
+        [State("file-dropdown", "value"),
+         State("well-names-store", "data")],  # Add control-wells-store to the states
         prevent_initial_call=True
     )
-    def plot_1d_default(n_clicks, selected_file, well_names):
-        if n_clicks and selected_file:
-            # well_names = {}  # Provide your well names mapping here
-            file_path = os.path.join('unzipped_dir', selected_file)
-            probe_name = get_color(selected_file)
-            
-            plot_event = threading.Event()
-            plot_events[file_path] = plot_event
-            threading.Thread(target=plot_data1, args=(file_path, well_names, 'default')).start()
-            
-            return (html.Div(f"Processing 1D plot with default threshold for probe {probe_name}...", id="plot-status", style={"color": "blue"}),
-                    {"status": "processing", "file_path": file_path})
-        return dash.no_update, dash.no_update
+    def plot_1d(n_clicks_default, n_clicks_calibrated, selected_file, data):  # Add control_wells parameter
+        control_wells = data[1]
+        well_names = data[0]
+        
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            print("No button clicks detected.")
+            return dash.no_update, dash.no_update
+
+        print("Button clicked, checking states...")
+        if not selected_file:
+            print("No file selected.")
+            return dash.no_update, dash.no_update
+
+        if not well_names:
+            print("Well names not provided.")
+            return dash.no_update, dash.no_update
+
+        if not control_wells:  # Check if control wells are provided
+            print("Control wells not provided.")
+            return dash.no_update, dash.no_update
+
+        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        threshold_type = 'default' if button_id == 'default-threshold' else 'calibrated'
+        
+        file_path = os.path.join('unzipped_dir', selected_file)
+        probe_name = get_color(selected_file)
+        
+        plot_event = threading.Event()
+        plot_events[file_path] = plot_event
+
+
+        # print(f'Starting plot_data1 with control wells: {control}')
+        threading.Thread(target=plot_data1, args=(file_path, well_names, threshold_type, control_wells)).start()
+        
+        threshold_type_text = "default" if threshold_type == 'default' else "calibrated"
+        return (html.Div(f"Processing 1D plot with {threshold_type_text} threshold for probe {probe_name}...", id="plot-status", style={"color": "blue"}),
+                {"status": "processing", "file_path": file_path, "threshold_type": threshold_type})
 
     @app.callback(
         Output("plot-status", "children"),
@@ -147,8 +183,9 @@ def register_plot_callbacks(app):
         if plot_status_store and plot_status_store.get("status") == "processing":
             file_path = plot_status_store.get("file_path")
             probe_name = get_color(file_path)
+            threshold_type = plot_status_store.get("threshold_type")
             if plot_events[file_path].is_set():
                 # Update the message to indicate the completion of the plotting process
-                output_message = html.Div(f"Completed 1D plot with default threshold for probe {probe_name}!", style={"color": "green"})
+                output_message = html.Div(f"Completed 1D plot with {threshold_type} threshold for probe {probe_name}!", style={"color": "green"})
                 return output_message
         return dash.no_update

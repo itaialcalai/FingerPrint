@@ -1,7 +1,6 @@
 import dash
 from dash import html, dcc
 from dash.dependencies import Input, Output, State
-from dash import html, dcc
 import base64
 import io
 import zipfile
@@ -48,7 +47,8 @@ def register_callbacks(app):
                     dbc.Input(id="control-well-mix-positive", placeholder="Mix Positive Control Well", type="text", style={"margin": "5px", "width": "200px"}),
                     dbc.Input(id="control-well-negative", placeholder="Negative Control Well", type="text", style={"margin": "5px", "width": "200px"}),
                     dbc.Button("Apply", id="apply-wells", color="primary", style={"marginTop": "20px"})
-                ])
+                ]),
+                dcc.Store(id="control-wells-store")  # Add control-wells-store to the layout
             ])
 
             return uploaded_files, {"display": "block"}, wells_selection_layout
@@ -96,6 +96,13 @@ def register_callbacks(app):
         if n_clicks:
             wells_matrix = [wells_data[i:i+3] for i in range(0, len(wells_data), 3)]
             well_names = create_well_name_dict(wells_matrix)
+            control_wells = {
+                "positive": control_well_positive,
+                "mix_positive": control_well_mix_positive,
+                "negative": control_well_negative
+            }
+            init_well_data = (well_names, control_wells)
+            print(f"Control wells set: {control_wells}")  # Debug statement
             return html.Div([
                 html.H3("Init Complete Successfully!", style={"color": "green", "textAlign": "center", "marginTop": "20px"}),
                 html.Div(f"Positive Control Well: {control_well_positive}", style={"textAlign": "center"}),
@@ -107,10 +114,8 @@ def register_callbacks(app):
                     dbc.Col(dbc.Button("Plot 2D", id="plot-2d", color="primary", style={"marginTop": "20px"}), width={"size": 2}),
                     dbc.Col(dbc.Button("Plot 3D", id="plot-3d", color="primary", style={"marginTop": "20px"}), width={"size": 2})
                 ])
-            ]), {"display": "none"}, well_names
-
+            ]), {"display": "none"}, init_well_data
         return "", {"display": "block"}, dash.no_update
     
     # Register plot-related callbacks
     register_plot_callbacks(app)
-

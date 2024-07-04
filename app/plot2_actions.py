@@ -1,3 +1,6 @@
+# Itai Alcalai
+# plot2_actions.py
+
 import dash
 from dash.dependencies import Input, Output, State
 from dash import html, dcc
@@ -5,25 +8,38 @@ import dash_bootstrap_components as dbc
 import os
 import pandas as pd
 import matplotlib
-# Set Matplotlib to use the 'Agg' backend
+# Set Matplotlib to use the 'Agg' backend for non-GUI environments
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import threading
 from utils import get_color
 import warnings
 
-# Suppress the specific Matplotlib warning
+# Suppress specific Matplotlib warnings
 warnings.filterwarnings("ignore", message="Starting a Matplotlib GUI outside of the main thread will likely fail")
 
-# A dictionary to keep track of plot events for different files
+# Dictionary to manage plot events for different files
 plot_events = {}
 
 def list_files():
+    """
+    Lists all files in the unzipped directory.
+
+    Returns:
+        list: A list of filenames present in the 'unzipped_dir' directory.
+    """
     # List files in the unzipped directory
     return os.listdir('unzipped_dir')
 
 def plot_2d_layout():
+    """
+    Generates the layout for the 2D plot screen.
+
+    Returns:
+        html.Div: A Dash HTML component containing the layout for 2D plotting.
+    """
     files = list_files()
+    # Generate the 2D plot layout with dropdowns for file selection and a button to initiate plotting
     return html.Div([
         html.H3("Plot 2D", style={"textAlign": "center", "marginTop": "20px"}),
         html.Div("Choose two files:", style={"textAlign": "center", "marginTop": "20px"}),
@@ -41,32 +57,57 @@ def plot_2d_layout():
         ),
         html.Button("Plot Default", id="plot-default-button", n_clicks=0, style={"marginTop": "20px", "display": "block", "margin": "0 auto"}),
         html.Div(id="plot-output-2d", style={"textAlign": "center", "marginTop": "20px"}),
-        dcc.Store(id="plot2d-status-store"),
-        dcc.Interval(id="plot2d-check-interval", interval=1000, n_intervals=0)
+        dcc.Store(id="plot2d-status-store"),  # Store for plot status
+        dcc.Interval(id="plot2d-check-interval", interval=1000, n_intervals=0)  # Interval to check the plot status
     ])
 
 def plot_data2(file_path1, file_path2, well_data, plot_event):
+    """
+    Processes data from the selected files to generate 2D plots.
+
+    Args:
+        file_path1 (str): Path to the first file containing the data.
+        file_path2 (str): Path to the second file containing the data.
+        well_data (tuple): Tuple containing well names and control wells.
+        plot_event (threading.Event): Event to signal completion of the plotting process.
+
+    Returns:
+        bool: True if plotting is successful, False otherwise.
+    """
     try:
         well_names = well_data[0]
         control_wells = well_data[1]
 
         def read_file(file_path):
+            """
+            Reads a CSV file in chunks.
+
+            Args:
+                file_path (str): Path to the file to be read.
+
+            Returns:
+                pandas.io.parsers.TextFileReader: An iterator to read the file in chunks.
+            """
             with open(file_path, 'r') as file:
                 first_line = file.readline().strip()
                 skip_first_line = 'sep=' in first_line
 
+            # Read the CSV file in chunks to handle large files
             reader = pd.read_csv(file_path, delimiter=',', skiprows=1 if skip_first_line else 0, chunksize=10000)
             return reader
 
+        # Initialize readers for the two selected files
         reader1 = read_file(file_path1)
         reader2 = read_file(file_path2)
         probe1 = get_color(file_path1)
         probe2 = get_color(file_path2)
 
+        # Create output directory for plots
         output_dir = f"2D_plots_{probe1}_{probe2}"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
+        # Initialize variables for data processing
         current_well = None
         rfus1_above = []
         rfus2_above = []
@@ -87,6 +128,17 @@ def plot_data2(file_path1, file_path2, well_data, plot_event):
         plot_count = 0
 
         def plot_2d_scatter(well, threshold1, threshold2, output_dir, plot_count):
+            """
+            Generates a 2D scatter plot for the given well.
+
+            Args:
+                well (str): The well identifier.
+                threshold1 (float): Threshold value for the first file.
+                threshold2 (float): Threshold value for the second file.
+                output_dir (str): Directory to save the plot.
+                plot_count (int): Counter for the plot number.
+            """
+            # Generate the scatter plot with RFU values and thresholds
             plt.figure()
             plt.scatter(rfus1_above, rfus2_above, color='red', alpha=0.8)
             plt.scatter(rfus1_above_below, rfus2_above_below, color=probe1[0], alpha=0.5)
@@ -98,6 +150,7 @@ def plot_data2(file_path1, file_path2, well_data, plot_event):
             plt.ylabel(f'{probe2} Probe RFU')
             plt.title(f'{probe1} vs {probe2} 2D Scatter Plot for Well {well}')
 
+            # Create legend labels for the plot
             legend_labels = [
                 f'+ {probe1} + {probe2} | {ab_ab}',
                 f'+ {probe1}, - {probe2} | {ab_bl}',
@@ -107,19 +160,24 @@ def plot_data2(file_path1, file_path2, well_data, plot_event):
                 f'Invalid {probe2} | {invalid_y}'
             ]
 
+            # Colors for the legend
             colors = ['red', probe1[0], probe2[0], 'gray', 'white', 'white']
 
+            # Plot empty scatter points for the legend
             for label, color in zip(legend_labels, colors):
                 plt.scatter([], [], color=color, label=label)
             plt.legend()
+            # Save the plot to the output directory
             plt.savefig(os.path.join(output_dir, f'{probe1}_{probe2}_plot_{plot_count}_{well}.png'))
             plt.close()
 
+        # Process each chunk of data from the readers
         for chunk1, chunk2 in zip(reader1, reader2):
             for index, (row1, row2) in enumerate(zip(chunk1.iterrows(), chunk2.iterrows())):
                 row1 = row1[1]
                 row2 = row2[1]
 
+                # If a new well is encountered, plot the data for the previous well
                 if current_well is None or row1['Well'] != current_well:
                     if rfus1_above or rfus1_below or rfus1_above_below or rfus1_below_above:
                         well_name = well_names.get(current_well, current_well)
@@ -138,6 +196,7 @@ def plot_data2(file_path1, file_path2, well_data, plot_event):
                     threshold1 = row1['Threshold']
                     threshold2 = row2['Threshold']
 
+                # Categorize RFU values based on thresholds
                 if 'RFU' in row1 and pd.notna(row1['RFU']) and 'RFU' in row2 and pd.notna(row2['RFU']):
                     if row1['RFU'] > threshold1 and row2['RFU'] > threshold2:
                         rfus1_above.append(row1['RFU'])
@@ -160,6 +219,7 @@ def plot_data2(file_path1, file_path2, well_data, plot_event):
                 elif 'RFU' in row2 and not pd.notna(row2['RFU']):
                     invalid_y += 1
 
+        # Plot the data for the last well
         if rfus1_above or rfus1_below or rfus1_above_below or rfus1_below_above:
             well_name = well_names.get(current_well, current_well)
             plot_2d_scatter(well_name, threshold1, threshold2, output_dir, plot_count)
@@ -173,6 +233,12 @@ def plot_data2(file_path1, file_path2, well_data, plot_event):
         return False
 
 def register_plot2_callbacks(app):
+    """
+    Registers callbacks for the 2D plot feature in the Dash app.
+
+    Args:
+        app (Dash): The Dash app instance.
+    """
     @app.callback(
         Output("initial-screen", "children", allow_duplicate=True),
         Input("plot-2d", "n_clicks"),
@@ -180,6 +246,16 @@ def register_plot2_callbacks(app):
         prevent_initial_call=True
     )
     def plot_2d_screen(n_clicks, data):
+        """
+        Callback to update the screen layout when the 'Plot 2D' button is clicked.
+
+        Args:
+            n_clicks (int): Number of times the button has been clicked.
+            data (dict): Stored well names and control wells data.
+
+        Returns:
+            html.Div: The layout for the 2D plot screen.
+        """
         if n_clicks:
             return plot_2d_layout()
         return dash.no_update
@@ -194,6 +270,18 @@ def register_plot2_callbacks(app):
         prevent_initial_call=True
     )
     def plot_2d(n_clicks, selected_file1, selected_file2, well_names):
+        """
+        Callback to initiate the 2D plotting process based on user inputs.
+
+        Args:
+            n_clicks (int): Number of times the 'Plot Default' button has been clicked.
+            selected_file1 (str): The selected first file for plotting.
+            selected_file2 (str): The selected second file for plotting.
+            well_names (dict): Stored well names and control wells data.
+
+        Returns:
+            tuple: HTML div with plot status and plot status store data.
+        """
         ctx = dash.callback_context
         if n_clicks == 0:
             return dash.no_update, dash.no_update
@@ -212,6 +300,7 @@ def register_plot2_callbacks(app):
         plot_event = threading.Event()
         plot_events[(file_path1, file_path2)] = plot_event
 
+        # Start the plotting process in a new thread
         threading.Thread(target=plot_data2, args=(file_path1, file_path2, well_names, plot_event)).start()
 
         return html.Div(f"Processing 2D plot for probes {probe_name1} and {probe_name2}...", id="plot2d-status", style={"color": "blue"}), {"status": "processing", "file_paths": (file_path1, file_path2)}
@@ -223,6 +312,16 @@ def register_plot2_callbacks(app):
         prevent_initial_call=True
     )
     def update_plot2d_status(n_intervals, plot2d_status_store):
+        """
+        Callback to update the plot status at regular intervals.
+
+        Args:
+            n_intervals (int): Number of intervals passed.
+            plot2d_status_store (dict): Stored plot status data.
+
+        Returns:
+            html.Div: Updated plot status message.
+        """
         if plot2d_status_store and plot2d_status_store.get("status") == "processing":
             file_paths = tuple(plot2d_status_store.get("file_paths"))
             probe_name1 = get_color(file_paths[0])

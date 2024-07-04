@@ -1,3 +1,6 @@
+# Itai Alcalai
+# plot1_actions.py
+
 import dash
 from dash.dependencies import Input, Output, State
 from dash import html, dcc
@@ -5,7 +8,7 @@ import dash_bootstrap_components as dbc
 import os
 import pandas as pd
 import matplotlib
-# Set Matplotlib to use the 'Agg' backend
+# Set Matplotlib to use the 'Agg' backend for non-GUI environments
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import threading
@@ -13,22 +16,33 @@ from utils import get_color
 from threshold_calibration import get_calibrated_threshold
 import warnings
 
-# Suppress the specific Matplotlib warning
+# Suppress specific Matplotlib warnings
 warnings.filterwarnings("ignore", message="Starting a Matplotlib GUI outside of the main thread will likely fail")
 
-# A dictionary to keep track of plot events for different files
+# Dictionaries to manage plot events, errors, and print messages
 plot_events = {}
-# A dictionary to store error messages
 plot_errors = {}
-# A dictionary to store print messages
 plot_prints = {}
 
 def list_files():
+    """
+    Lists all files in the unzipped directory.
+
+    Returns:
+        list: A list of filenames present in the 'unzipped_dir' directory.
+    """
     # List files in the unzipped directory
     return os.listdir('unzipped_dir')
 
 def plot_1d_layout():
+    """
+    Generates the layout for the 1D plot screen.
+
+    Returns:
+        html.Div: A Dash HTML component containing the layout for 1D plotting.
+    """
     files = list_files()
+    # Generate the layout for 1D plot with dropdown for file selection and buttons for threshold selection
     return html.Div([
         html.H3("Plot 1D", style={"textAlign": "center", "marginTop": "20px"}),
         html.Div("Choose a file:", style={"textAlign": "center", "marginTop": "20px"}),
@@ -50,11 +64,25 @@ def plot_1d_layout():
     ])
 
 def plot_data1(file_path, well_names, threshold_type, control_wells=None):
+    """
+    Processes data from the selected file to generate 1D plots with either default or calibrated thresholds.
+
+    Args:
+        file_path (str): Path to the file containing the data.
+        well_names (dict): Dictionary mapping well identifiers to their names.
+        threshold_type (str): Type of threshold to use ('default' or 'calibrated').
+        control_wells (dict, optional): Dictionary containing control well names. Default is None.
+
+    Returns:
+        bool: True if plotting is successful, False otherwise.
+    """
     try:
+        # Check if the file contains a 'sep=' line
         with open(file_path, 'r') as file:
             first_line = file.readline().strip()
             skip_first_line = 'sep=' in first_line
 
+        # Read the file in chunks to manage memory usage
         reader = pd.read_csv(file_path, delimiter=',', skiprows=1 if skip_first_line else 0, chunksize=10000)
         output_dir = f"1D_plots_{os.path.splitext(os.path.basename(get_color(file_path)))[0]}_{threshold_type}"
         if not os.path.exists(output_dir):
@@ -70,7 +98,7 @@ def plot_data1(file_path, well_names, threshold_type, control_wells=None):
                 if current_well is None or row['Well'] != current_well:
                     if rfus:
                         well_name = well_names.get(current_well, current_well)  # Get well name from well_names dict
-                        # threshold handle
+                        # Handle threshold
                         if threshold_type == 'default':
                             if threshold is None and 'Threshold' in chunk.columns:
                                 threshold = row['Threshold']
@@ -83,8 +111,8 @@ def plot_data1(file_path, well_names, threshold_type, control_wells=None):
                                 except Exception as e:
                                     plot_errors[file_path] = "Error calibrating threshold: " + str(e)
                                     return False
-                        # Assign indices according to dPCR device logic
-                        x_indices = [(i % 80) + 1 for i in range(len(rfus))]  # -> [1-80], [1-80],...
+                        # Plot the RFU data
+                        x_indices = [(i % 80) + 1 for i in range(len(rfus))]
                         plt.figure(figsize=(10, 6))
                         plt.scatter(x_indices, rfus, alpha=0.5)
                         plt.axhline(y=threshold, color='r', linestyle='-')
@@ -123,6 +151,12 @@ def plot_data1(file_path, well_names, threshold_type, control_wells=None):
     return True
 
 def register_plot1_callbacks(app):
+    """
+    Registers callbacks for the 1D plot feature in the Dash app.
+
+    Args:
+        app (Dash): The Dash app instance.
+    """
     @app.callback(
         Output("initial-screen", "children", allow_duplicate=True),
         Input("plot-1d", "n_clicks"),
@@ -130,6 +164,16 @@ def register_plot1_callbacks(app):
         prevent_initial_call=True
     )
     def plot_1d_screen(n_clicks, data):
+        """
+        Callback to update the screen layout when the 'Plot 1D' button is clicked.
+
+        Args:
+            n_clicks (int): Number of times the button has been clicked.
+            data (dict): Stored well names and control wells data.
+
+        Returns:
+            html.Div: The layout for the 1D plot screen.
+        """
         if n_clicks:
             control_wells = data[1]
             names = data[0]
@@ -142,10 +186,22 @@ def register_plot1_callbacks(app):
         [Input("default-threshold", "n_clicks"),
          Input("calibrated-threshold", "n_clicks")],
         [State("file-dropdown", "value"),
-         State("well-names-store", "data")],  # Add control-wells-store to the states
+         State("well-names-store", "data")],
         prevent_initial_call=True
     )
-    def plot_1d(n_clicks_default, n_clicks_calibrated, selected_file, data):  # Add control_wells parameter
+    def plot_1d(n_clicks_default, n_clicks_calibrated, selected_file, data):
+        """
+        Callback to initiate the 1D plotting process based on user inputs.
+
+        Args:
+            n_clicks_default (int): Number of times the 'Default' threshold button has been clicked.
+            n_clicks_calibrated (int): Number of times the 'Calibrated' threshold button has been clicked.
+            selected_file (str): The selected file for plotting.
+            data (dict): Stored well names and control wells data.
+
+        Returns:
+            tuple: HTML div with plot status and plot status store data.
+        """
         control_wells = data[1]
         well_names = data[0]
 
@@ -162,7 +218,7 @@ def register_plot1_callbacks(app):
             plot_prints[selected_file] = "Well names not provided."
             return (html.Div("Well names not provided.", style={"color": "red"}), dash.no_update)
 
-        if not control_wells:  # Check if control wells are provided
+        if not control_wells:
             plot_prints[selected_file] = "Control wells not provided."
             return (html.Div("Control wells not provided.", style={"color": "red"}), dash.no_update)
 
@@ -177,6 +233,7 @@ def register_plot1_callbacks(app):
         plot_events[file_path] = plot_event
         plot_errors[file_path] = None  # Clear previous errors
 
+        # Start the plotting process in a new thread
         threading.Thread(target=plot_data1, args=(file_path, well_names, threshold_type, control_wells)).start()
 
         threshold_type_text = "default" if threshold_type == 'default' else 'calibrated'
@@ -190,11 +247,21 @@ def register_plot1_callbacks(app):
         prevent_initial_call=True
     )
     def update_plot_status(n_intervals, plot_status_store):
+        """
+        Callback to update the plot status at regular intervals.
+
+        Args:
+            n_intervals (int): Number of intervals passed.
+            plot_status_store (dict): Stored plot status data.
+
+        Returns:
+            html.Div: Updated plot status message.
+        """
         if plot_status_store and plot_status_store.get("status") == "processing":
             file_path = plot_status_store.get("file_path")
             probe_name = get_color(file_path)
             threshold_type = plot_status_store.get("threshold_type")
-            threshold_type_text = "default" if threshold_type == 'default' else "calibrated"
+            threshold_type_text = "default" if threshold_type == 'default' else 'calibrated'
             if plot_events[file_path].is_set():
                 if file_path in plot_errors and plot_errors[file_path]:
                     error_message = html.Div(f"Error: 1D plot with {threshold_type_text} threshold for probe {probe_name} - {plot_errors[file_path]}", style={"color": "red"})

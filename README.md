@@ -8,6 +8,7 @@ DPCR Automation is a software tool designed to streamline and automate the proce
 - **app**: This directory contains all the current code files necessary for the functioning of the Dash app.
 - **old_src**: This directory holds the old drafts of the code files. It serves as a reference for the previous versions and helps in tracking the development history.
 - **example_input**: An example input file to demonstrate the expected format and structure of the data files.
+- **requirements.txt**: Specifies the Python packages required for running the DPCR Automation software.
 - **README**: The documentation file you are currently reading, providing an overview and instructions for the software.
   
 ## Features

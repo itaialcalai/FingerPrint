@@ -18,8 +18,9 @@ import warnings
 # Suppress specific Matplotlib warnings
 warnings.filterwarnings("ignore", message="Starting a Matplotlib GUI outside of the main thread will likely fail")
 
-# Dictionary to manage plot events for different files
+# Dictionaries to manage plot events and threads for different files
 plot_events = {}
+plot_threads = {}
 
 def list_files():
     """
@@ -28,7 +29,6 @@ def list_files():
     Returns:
         list: A list of filenames present in the 'unzipped_dir' directory.
     """
-    # List files in the unzipped directory
     return os.listdir('unzipped_dir')
 
 def plot_2d_layout():
@@ -58,7 +58,8 @@ def plot_2d_layout():
         html.Button("Plot Default", id="plot-default-button", n_clicks=0, style={"marginTop": "20px", "display": "block", "margin": "0 auto"}),
         html.Div(id="plot-output-2d", style={"textAlign": "center", "marginTop": "20px"}),
         dcc.Store(id="plot2d-status-store"),  # Store for plot status
-        dcc.Interval(id="plot2d-check-interval", interval=1000, n_intervals=0)  # Interval to check the plot status
+        dcc.Interval(id="plot2d-check-interval", interval=1000, n_intervals=0),  # Interval to check the plot status
+        dbc.Button("Back to Plot Menu", id="back-to-main-menu-2", color="secondary", style={"marginTop": "20px", "display": "block", "marginLeft": "auto", "marginRight": "auto"})
     ])
 
 def plot_data2(file_path1, file_path2, well_data, plot_event):
@@ -261,6 +262,45 @@ def register_plot2_callbacks(app):
         return dash.no_update
 
     @app.callback(
+        Output("initial-screen", "children", allow_duplicate=True),
+        Input("back-to-main-menu-2", "n_clicks"),
+        State("well-names-store", "data"),
+        prevent_initial_call=True
+    )
+    def back_to_main_menu(n_clicks, data):
+        """
+        Callback to return to the main menu when the 'Back to Main Menu' button is clicked.
+
+        Args:
+            n_clicks (int): Number of times the button has been clicked.
+            data (dict): Stored well names and control wells data.
+
+        Returns:
+            html.Div: The layout for the main menu screen.
+        """
+        if n_clicks:
+            well_names, control_wells = data
+
+            # Clean up resources
+            for file_path in list(plot_threads.keys()):
+                plot_threads[file_path].join(timeout=1)  # Attempt to stop the thread gracefully
+                del plot_threads[file_path]
+
+            return html.Div([
+                html.H3("Init Complete Successfully!", style={"color": "green", "textAlign": "center", "marginTop": "20px"}),
+                html.Div(f"Positive Control Well: {control_wells['positive']}", style={"textAlign": "center"}),
+                html.Div(f"Mix Positive Control Well: {control_wells['mix_positive']}", style={"textAlign": "center"}),
+                html.Div(f"Negative Control Well: {control_wells['negative']}", style={"textAlign": "center"}),
+                html.H3("Choose Action", style={"textAlign": "center", "marginTop": "40px"}),
+                dbc.Row([
+                    dbc.Col(dbc.Button("Plot 1D", id="plot-1d", color="primary", style={"marginTop": "20px"}), width={"size": 2, "offset": 3}),
+                    dbc.Col(dbc.Button("Plot 2D", id="plot-2d", color="primary", style={"marginTop": "20px"}), width={"size": 2}),
+                    dbc.Col(dbc.Button("Plot 3D", id="plot-3d", color="primary", style={"marginTop": "20px"}), width={"size": 2})
+                ])
+            ])
+        return dash.no_update
+
+    @app.callback(
         [Output("plot-output-2d", "children"),
          Output("plot2d-status-store", "data")],
         Input("plot-default-button", "n_clicks"),
@@ -301,7 +341,9 @@ def register_plot2_callbacks(app):
         plot_events[(file_path1, file_path2)] = plot_event
 
         # Start the plotting process in a new thread
-        threading.Thread(target=plot_data2, args=(file_path1, file_path2, well_names, plot_event)).start()
+        plot_thread = threading.Thread(target=plot_data2, args=(file_path1, file_path2, well_names, plot_event))
+        plot_thread.start()
+        plot_threads[(file_path1, file_path2)] = plot_thread
 
         return html.Div(f"Processing 2D plot for probes {probe_name1} and {probe_name2}...", id="plot2d-status", style={"color": "blue"}), {"status": "processing", "file_paths": (file_path1, file_path2)}
 

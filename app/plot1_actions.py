@@ -12,6 +12,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import threading
+import shutil
 from utils import get_color
 from threshold_calibration import get_calibrated_threshold
 import warnings
@@ -23,6 +24,7 @@ warnings.filterwarnings("ignore", message="Starting a Matplotlib GUI outside of 
 plot_events = {}
 plot_errors = {}
 plot_prints = {}
+plot_threads = {}
 
 def list_files():
     """
@@ -31,7 +33,6 @@ def list_files():
     Returns:
         list: A list of filenames present in the 'unzipped_dir' directory.
     """
-    # List files in the unzipped directory
     return os.listdir('unzipped_dir')
 
 def plot_1d_layout():
@@ -42,7 +43,6 @@ def plot_1d_layout():
         html.Div: A Dash HTML component containing the layout for 1D plotting.
     """
     files = list_files()
-    # Generate the layout for 1D plot with dropdown for file selection and buttons for threshold selection
     return html.Div([
         html.H3("Plot 1D", style={"textAlign": "center", "marginTop": "20px"}),
         html.Div("Choose a file:", style={"textAlign": "center", "marginTop": "20px"}),
@@ -58,9 +58,10 @@ def plot_1d_layout():
             dbc.Col(dbc.Button("Calibrated", id="calibrated-threshold", color="primary", style={"marginTop": "20px"}), width={"size": 2})
         ]),
         html.Div(id="plot-output", style={"textAlign": "center", "marginTop": "20px"}),
-        dcc.Store(id="plot-status-store"),  # Store for plot status
-        dcc.Store(id="control-wells-store"),  # Store for control well names
-        dcc.Interval(id="plot-check-interval", interval=1000, n_intervals=0)  # Interval to check the plot status
+        dcc.Store(id="plot-status-store"),
+        dcc.Store(id="control-wells-store"),
+        dcc.Interval(id="plot-check-interval", interval=1000, n_intervals=0),
+        dbc.Button("Back to Plot Menu", id="back-to-main-menu-1", color="secondary", style={"marginTop": "20px", "display": "block", "marginLeft": "auto", "marginRight": "auto"})
     ])
 
 def plot_data1(file_path, well_names, threshold_type, control_wells=None):
@@ -95,9 +96,10 @@ def plot_data1(file_path, well_names, threshold_type, control_wells=None):
 
         for chunk in reader:
             for index, row in chunk.iterrows():
+                # If we have moved to a new well, process the current RFUs
                 if current_well is None or row['Well'] != current_well:
                     if rfus:
-                        well_name = well_names.get(current_well, current_well)  # Get well name from well_names dict
+                        well_name = well_names.get(current_well, current_well)
                         # Handle threshold
                         if threshold_type == 'default':
                             if threshold is None and 'Threshold' in chunk.columns:
@@ -110,6 +112,7 @@ def plot_data1(file_path, well_names, threshold_type, control_wells=None):
                                     plot_prints[file_path] = "Calibrated successfully, continuing to plot..."
                                 except Exception as e:
                                     plot_errors[file_path] = "Error calibrating threshold: " + str(e)
+                                    plot_events[file_path].set()
                                     return False
                         # Plot the RFU data
                         x_indices = [(i % 80) + 1 for i in range(len(rfus))]
@@ -160,7 +163,7 @@ def register_plot1_callbacks(app):
     @app.callback(
         Output("initial-screen", "children", allow_duplicate=True),
         Input("plot-1d", "n_clicks"),
-        [State("well-names-store", "data")],
+        State("well-names-store", "data"),
         prevent_initial_call=True
     )
     def plot_1d_screen(n_clicks, data):
@@ -178,6 +181,45 @@ def register_plot1_callbacks(app):
             control_wells = data[1]
             names = data[0]
             return plot_1d_layout()
+        return dash.no_update
+
+    @app.callback(
+        Output("initial-screen", "children", allow_duplicate=True),
+        Input("back-to-main-menu-1", "n_clicks"),
+        State("well-names-store", "data"),
+        prevent_initial_call=True
+    )
+    def back_to_main_menu(n_clicks, data):
+        """
+        Callback to return to the main menu when the 'Back to Main Menu' button is clicked.
+
+        Args:
+            n_clicks (int): Number of times the button has been clicked.
+            data (dict): Stored well names and control wells data.
+
+        Returns:
+            html.Div: The layout for the main menu screen.
+        """
+        if n_clicks:
+            well_names, control_wells = data
+
+            # Clean up resources
+            for file_path in list(plot_threads.keys()):
+                plot_threads[file_path].join(timeout=1)  # Attempt to stop the thread gracefully
+                del plot_threads[file_path]
+
+            return html.Div([
+                html.H3("Init Complete Successfully!", style={"color": "green", "textAlign": "center", "marginTop": "20px"}),
+                html.Div(f"Positive Control Well: {control_wells['positive']}", style={"textAlign": "center"}),
+                html.Div(f"Mix Positive Control Well: {control_wells['mix_positive']}", style={"textAlign": "center"}),
+                html.Div(f"Negative Control Well: {control_wells['negative']}", style={"textAlign": "center"}),
+                html.H3("Choose Action", style={"textAlign": "center", "marginTop": "40px"}),
+                dbc.Row([
+                    dbc.Col(dbc.Button("Plot 1D", id="plot-1d", color="primary", style={"marginTop": "20px"}), width={"size": 2, "offset": 3}),
+                    dbc.Col(dbc.Button("Plot 2D", id="plot-2d", color="primary", style={"marginTop": "20px"}), width={"size": 2}),
+                    dbc.Col(dbc.Button("Plot 3D", id="plot-3d", color="primary", style={"marginTop": "20px"}), width={"size": 2})
+                ])
+            ])
         return dash.no_update
 
     @app.callback(
@@ -231,10 +273,11 @@ def register_plot1_callbacks(app):
 
         plot_event = threading.Event()
         plot_events[file_path] = plot_event
-        plot_errors[file_path] = None  # Clear previous errors
+        plot_errors[file_path] = None
 
-        # Start the plotting process in a new thread
-        threading.Thread(target=plot_data1, args=(file_path, well_names, threshold_type, control_wells)).start()
+        plot_thread = threading.Thread(target=plot_data1, args=(file_path, well_names, threshold_type, control_wells))
+        plot_thread.start()
+        plot_threads[file_path] = plot_thread
 
         threshold_type_text = "default" if threshold_type == 'default' else 'calibrated'
         return (html.Div(f"Processing 1D plot with {threshold_type_text} threshold for probe {probe_name}...", id="plot-status", style={"color": "blue"}),

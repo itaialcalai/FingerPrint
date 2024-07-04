@@ -16,10 +16,11 @@ from plot3_actions import register_plot3_callbacks
 def register_callbacks(app):
     """
     Registers all the callbacks for the Dash app.
-    
+
     Args:
         app (Dash): The Dash app instance.
     """
+
     @app.callback(
         Output("initial-screen", "children"),
         Output("wells-selection-screen", "style"),
@@ -32,7 +33,7 @@ def register_callbacks(app):
     def handle_file_upload(contents, filenames, last_modified):
         """
         Handles the file upload and extracts the contents of the uploaded zip file.
-        
+
         Args:
             contents (list): List of uploaded file contents.
             filenames (list): List of uploaded file names.
@@ -42,11 +43,9 @@ def register_callbacks(app):
             tuple: Updated initial screen children, wells selection screen style, and wells selection screen children.
         """
         if contents is not None:
-            # Process each uploaded file
             for content, name in zip(contents, filenames):
                 _, content_string = content.split(',')
                 decoded = base64.b64decode(content_string)
-                # Extract the zip file to the 'unzipped_dir'
                 with zipfile.ZipFile(io.BytesIO(decoded), 'r') as zip_ref:
                     zip_ref.extractall('unzipped_dir')
             
@@ -58,8 +57,6 @@ def register_callbacks(app):
             
             # Layout for well selection screen
             wells_selection_layout = html.Div([
-                html.Div("Directory successfully unzipped!", style={"color": "green", "marginTop": "10px"}),
-                html.Ul([html.Li(f"{name}") for name in filenames]),
                 html.H2("Init Wells", style={"textAlign": "center", "marginTop": "20px"}),
                 html.Div([
                     # Create 8 rows for well inputs
@@ -157,11 +154,9 @@ def register_callbacks(app):
                     dbc.Col(dbc.Button("Plot 3D", id="plot-3d", color="primary", style={"marginTop": "20px"}), width={"size": 2})
                 ])
             ]), {"display": "none"}, init_well_data
-        return "", {"display": "block"}, dash.no_update
-    
-    # Register plot1D-related callbacks
+        return dash.no_update, dash.no_update, dash.no_update
+
+    # Register callbacks for plot actions
     register_plot1_callbacks(app)
-    # Register plot2D-related callbacks
     register_plot2_callbacks(app)
-    # Register plot3D-related callbacks
     register_plot3_callbacks(app)

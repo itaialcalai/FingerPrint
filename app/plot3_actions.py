@@ -15,9 +15,10 @@ import warnings
 # Suppress specific warnings
 warnings.filterwarnings("ignore", message="Starting a Matplotlib GUI outside of the main thread will likely fail")
 
-# A dictionary to keep track of plot events for different files
+# Dictionaries to manage plot events and errors for different files
 plot_events = {}
 plot_errors = {}
+plot_threads = {}
 
 def list_files():
     """
@@ -26,7 +27,6 @@ def list_files():
     Returns:
         list: A list of filenames present in the 'unzipped_dir' directory.
     """
-    # List files in the unzipped directory
     return os.listdir('unzipped_dir')
 
 def plot_3d_layout():
@@ -61,7 +61,8 @@ def plot_3d_layout():
         ),
         html.Div(id="plot-output-3d", style={"textAlign": "center", "marginTop": "20px"}),
         dcc.Store(id="plot3d-status-store"),  # Store for plot status
-        dcc.Interval(id="plot3d-check-interval", interval=1000, n_intervals=0)  # Interval to check the plot status
+        dcc.Interval(id="plot3d-check-interval", interval=1000, n_intervals=0),  # Interval to check the plot status
+        dbc.Button("Back to Plot Menu", id="back-to-main-menu-3", color="secondary", style={"marginTop": "20px", "display": "block", "marginLeft": "auto", "marginRight": "auto"})
     ])
 
 def plot_data3(file_path1, file_path2, file_path3, well_data, plot_event, plot_error):
@@ -255,6 +256,45 @@ def register_plot3_callbacks(app):
         return dash.no_update
 
     @app.callback(
+        Output("initial-screen", "children", allow_duplicate=True),
+        Input("back-to-main-menu-3", "n_clicks"),
+        State("well-names-store", "data"),
+        prevent_initial_call=True
+    )
+    def back_to_main_menu(n_clicks, data):
+        """
+        Callback to return to the main menu when the 'Back to Main Menu' button is clicked.
+
+        Args:
+            n_clicks (int): Number of times the button has been clicked.
+            data (dict): Stored well names and control wells data.
+
+        Returns:
+            html.Div: The layout for the main menu screen.
+        """
+        if n_clicks:
+            well_names, control_wells = data
+
+            # Clean up resources
+            for file_path in list(plot_threads.keys()):
+                plot_threads[file_path].join(timeout=1)  # Attempt to stop the thread gracefully
+                del plot_threads[file_path]
+
+            return html.Div([
+                html.H3("Init Complete Successfully!", style={"color": "green", "textAlign": "center", "marginTop": "20px"}),
+                html.Div(f"Positive Control Well: {control_wells['positive']}", style={"textAlign": "center"}),
+                html.Div(f"Mix Positive Control Well: {control_wells['mix_positive']}", style={"textAlign": "center"}),
+                html.Div(f"Negative Control Well: {control_wells['negative']}", style={"textAlign": "center"}),
+                html.H3("Choose Action", style={"textAlign": "center", "marginTop": "40px"}),
+                dbc.Row([
+                    dbc.Col(dbc.Button("Plot 1D", id="plot-1d", color="primary", style={"marginTop": "20px"}), width={"size": 2, "offset": 3}),
+                    dbc.Col(dbc.Button("Plot 2D", id="plot-2d", color="primary", style={"marginTop": "20px"}), width={"size": 2}),
+                    dbc.Col(dbc.Button("Plot 3D", id="plot-3d", color="primary", style={"marginTop": "20px"}), width={"size": 2})
+                ])
+            ])
+        return dash.no_update
+
+    @app.callback(
         [Output("plot-output-3d", "children"),
          Output("plot3d-status-store", "data")],
         [Input("file1-dropdown", "value"),
@@ -299,7 +339,9 @@ def register_plot3_callbacks(app):
         plot_errors[(file_path1, file_path2, file_path3)] = plot_error
 
         # Start the plotting process in a new thread
-        threading.Thread(target=plot_data3, args=(file_path1, file_path2, file_path3, well_names, plot_event, plot_error)).start()
+        plot_thread = threading.Thread(target=plot_data3, args=(file_path1, file_path2, file_path3, well_names, plot_event, plot_error))
+        plot_thread.start()
+        plot_threads[(file_path1, file_path2, file_path3)] = plot_thread
 
         return (html.Div(f"Processing 3D plot for probes {probe_name1}, {probe_name2}, and {probe_name3}...", id="plot3d-status", style={"color": "blue"}),
                 {"status": "processing", "file_paths": (file_path1, file_path2, file_path3)})

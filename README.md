@@ -81,9 +81,8 @@ This will launch the Dash server, and you can access the application by navigati
 - **plot_3d_layout**: Generates the layout for 3D plot screen.
 - **plot_data1, plot_data2, plot_data3**: Processes data and generates 1D, 2D, and 3D plots, respectively.
 
-## Contributing
-Contributions are welcome! Please feel free to submit a pull request or open an issue to discuss improvements or new features.
 
 ## License
-This project is licensed under the MIT License. See the LICENSE file for more details.
+Itai Alcalai
+206071110
 

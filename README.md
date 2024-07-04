@@ -2,14 +2,14 @@
 # DPCR Automation
 
 ## Overview
-DPCR Automation is a software tool designed to streamline and automate the process of analyzing digital PCR (dPCR) data. This application provides an easy-to-use graphical user interface (GUI) built with Dash and utilizes various backend scripts to handle data extraction, threshold calibration, and plotting of results in 1D, 2D, and 3D formats. The software supports the uploading of data files, selection of control wells, and generation of visual plots to facilitate comprehensive analysis of dPCR data.
+DPCR Automation is a software tool designed to streamline and automate the process of analyzing digital PCR (dPCR) data. This application provides a GUI and utilizes various backend scripts to handle data extraction, threshold calibration, and plotting of results in 1D, 2D, and 3D formats. The software supports the uploading of data files, selection of control wells, and generation of visual plots to facilitate analysis of dPCR data.
 
 ## Directory Content
 - **app**: This directory contains all the current code files necessary for the functioning of the Dash app.
 - **old_src**: This directory holds the old drafts of the code files. It serves as a reference for the previous versions and helps in tracking the development history.
 - **example_input**: An example input file to demonstrate the expected format and structure of the data files.
 - **requirements.txt**: Specifies the Python packages required for running the DPCR Automation software.
-- **README**: The documentation file you are currently reading, providing an overview and instructions for the software.
+- **README**
   
 ## Features
 - **File Upload**: Upload zipped directories containing dPCR data files.

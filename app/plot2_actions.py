@@ -12,8 +12,6 @@ import threading
 from utils import get_color
 import warnings
 
-
-
 # Suppress the specific Matplotlib warning
 warnings.filterwarnings("ignore", message="Starting a Matplotlib GUI outside of the main thread will likely fail")
 
@@ -41,133 +39,138 @@ def plot_2d_layout():
             placeholder="Select the second file",
             style={"width": "50%", "margin": "0 auto", "marginTop": "10px"}
         ),
+        html.Button("Plot Default", id="plot-default-button", n_clicks=0, style={"marginTop": "20px", "display": "block", "margin": "0 auto"}),
         html.Div(id="plot-output-2d", style={"textAlign": "center", "marginTop": "20px"}),
         dcc.Store(id="plot2d-status-store"),
         dcc.Interval(id="plot2d-check-interval", interval=1000, n_intervals=0)
     ])
 
 def plot_data2(file_path1, file_path2, well_data, plot_event):
-    well_names = well_data[0]
-    control_wells = well_data[1]
-    print(f'In plot well names is', well_names)
-    def read_file(file_path):
-        with open(file_path, 'r') as file:
-            first_line = file.readline().strip()
-            skip_first_line = 'sep=' in first_line
+    try:
+        well_names = well_data[0]
+        control_wells = well_data[1]
 
-        reader = pd.read_csv(file_path, delimiter=',', skiprows=1 if skip_first_line else 0, chunksize=10000)
-        return reader
+        def read_file(file_path):
+            with open(file_path, 'r') as file:
+                first_line = file.readline().strip()
+                skip_first_line = 'sep=' in first_line
 
-    reader1 = read_file(file_path1)
-    reader2 = read_file(file_path2)
-    probe1 = get_color(file_path1)
-    probe2 = get_color(file_path2)
+            reader = pd.read_csv(file_path, delimiter=',', skiprows=1 if skip_first_line else 0, chunksize=10000)
+            return reader
 
-    output_dir = f"2D_plots_{probe1}_{probe2}"
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+        reader1 = read_file(file_path1)
+        reader2 = read_file(file_path2)
+        probe1 = get_color(file_path1)
+        probe2 = get_color(file_path2)
 
-    current_well = None
-    rfus1_above = []
-    rfus2_above = []
-    rfus1_below = []
-    rfus2_below = []
-    rfus1_above_below = []
-    rfus2_above_below = []
-    rfus1_below_above = []
-    rfus2_below_above = []
-    ab_ab = 0
-    ab_bl = 0
-    bl_ab = 0
-    bl_bl = 0
-    invalid_x = 0
-    invalid_y = 0
-    threshold1 = None
-    threshold2 = None
-    plot_count = 0
+        output_dir = f"2D_plots_{probe1}_{probe2}"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
-    def plot_2d_scatter(well, threshold1, threshold2, output_dir, plot_count):
-        print("In scatter")
-        plt.figure()
-        plt.scatter(rfus1_above, rfus2_above, color='red', alpha=0.8)
-        plt.scatter(rfus1_above_below, rfus2_above_below, color=probe1[0], alpha=0.5)
-        plt.scatter(rfus1_below_above, rfus2_below_above, color=probe2[0], alpha=0.5)
-        plt.scatter(rfus1_below, rfus2_below, color='gray', alpha=0.3)
-        plt.axhline(y=threshold2, color=probe2[0], linestyle='--', linewidth=1)
-        plt.axvline(x=threshold1, color=probe1[0], linestyle='--', linewidth=1)
-        plt.xlabel(f'{probe1} Probe RFU')
-        plt.ylabel(f'{probe2} Probe RFU')
-        plt.title(f'{probe1} vs {probe2} 2D Scatter Plot for Well {well}')
+        current_well = None
+        rfus1_above = []
+        rfus2_above = []
+        rfus1_below = []
+        rfus2_below = []
+        rfus1_above_below = []
+        rfus2_above_below = []
+        rfus1_below_above = []
+        rfus2_below_above = []
+        ab_ab = 0
+        ab_bl = 0
+        bl_ab = 0
+        bl_bl = 0
+        invalid_x = 0
+        invalid_y = 0
+        threshold1 = None
+        threshold2 = None
+        plot_count = 0
 
-        legend_labels = [
-            f'+ {probe1} + {probe2} | {ab_ab}',
-            f'+ {probe1}, - {probe2} | {ab_bl}',
-            f'- {probe1}, + {probe2} | {bl_ab}',
-            f'- {probe1}, - {probe2} | {bl_bl}',
-            f'Invalid {probe1} | {invalid_x}',
-            f'Invalid {probe2} | {invalid_y}'
-        ]
+        def plot_2d_scatter(well, threshold1, threshold2, output_dir, plot_count):
+            plt.figure()
+            plt.scatter(rfus1_above, rfus2_above, color='red', alpha=0.8)
+            plt.scatter(rfus1_above_below, rfus2_above_below, color=probe1[0], alpha=0.5)
+            plt.scatter(rfus1_below_above, rfus2_below_above, color=probe2[0], alpha=0.5)
+            plt.scatter(rfus1_below, rfus2_below, color='gray', alpha=0.3)
+            plt.axhline(y=threshold2, color=probe2[0], linestyle='--', linewidth=1)
+            plt.axvline(x=threshold1, color=probe1[0], linestyle='--', linewidth=1)
+            plt.xlabel(f'{probe1} Probe RFU')
+            plt.ylabel(f'{probe2} Probe RFU')
+            plt.title(f'{probe1} vs {probe2} 2D Scatter Plot for Well {well}')
 
-        colors = ['red', probe1[0], probe2[0], 'gray', 'white', 'white']
+            legend_labels = [
+                f'+ {probe1} + {probe2} | {ab_ab}',
+                f'+ {probe1}, - {probe2} | {ab_bl}',
+                f'- {probe1}, + {probe2} | {bl_ab}',
+                f'- {probe1}, - {probe2} | {bl_bl}',
+                f'Invalid {probe1} | {invalid_x}',
+                f'Invalid {probe2} | {invalid_y}'
+            ]
 
-        for label, color in zip(legend_labels, colors):
-            plt.scatter([], [], color=color, label=label)
-        plt.legend()
-        plt.savefig(os.path.join(output_dir, f'{probe1}_{probe2}_plot_{plot_count}_{well}.png'))
-        plt.close()
-        print("finish scatter")
+            colors = ['red', probe1[0], probe2[0], 'gray', 'white', 'white']
 
-    for chunk1, chunk2 in zip(reader1, reader2):
-        for index, (row1, row2) in enumerate(zip(chunk1.iterrows(), chunk2.iterrows())):
-            row1 = row1[1]
-            row2 = row2[1]
+            for label, color in zip(legend_labels, colors):
+                plt.scatter([], [], color=color, label=label)
+            plt.legend()
+            plt.savefig(os.path.join(output_dir, f'{probe1}_{probe2}_plot_{plot_count}_{well}.png'))
+            plt.close()
 
-            if current_well is None or row1['Well'] != current_well:
-                if rfus1_above or rfus1_below or rfus1_above_below or rfus1_below_above:
-                    well_name = well_names.get(current_well, current_well)
-                    plot_2d_scatter(well_name, threshold1, threshold2, output_dir, plot_count)
-                    rfus1_above = []
-                    rfus2_above = []
-                    rfus1_below = []
-                    rfus2_below = []
-                    rfus1_above_below = []
-                    rfus2_above_below = []
-                    rfus1_below_above = []
-                    rfus2_below_above = []
-                    invalid_x = invalid_y = ab_ab = ab_bl = bl_ab = bl_bl = 0
-                    plot_count += 1
-                current_well = row1['Well']
-                threshold1 = row1['Threshold']
-                threshold2 = row2['Threshold']
+        for chunk1, chunk2 in zip(reader1, reader2):
+            for index, (row1, row2) in enumerate(zip(chunk1.iterrows(), chunk2.iterrows())):
+                row1 = row1[1]
+                row2 = row2[1]
 
-            if 'RFU' in row1 and pd.notna(row1['RFU']) and 'RFU' in row2 and pd.notna(row2['RFU']):
-                if row1['RFU'] > threshold1 and row2['RFU'] > threshold2:
-                    rfus1_above.append(row1['RFU'])
-                    rfus2_above.append(row2['RFU'])
-                    ab_ab += 1
-                elif row1['RFU'] > threshold1 and row2['RFU'] <= threshold2:
-                    rfus1_above_below.append(row1['RFU'])
-                    rfus2_above_below.append(row2['RFU'])
-                    ab_bl += 1
-                elif row1['RFU'] <= threshold1 and row2['RFU'] > threshold2:
-                    rfus1_below_above.append(row1['RFU'])
-                    rfus2_below_above.append(row2['RFU'])
-                    bl_ab += 1
-                else:
-                    rfus1_below.append(row1['RFU'])
-                    rfus2_below.append(row2['RFU'])
-                    bl_bl += 1
-            elif 'RFU' in row1 and not pd.notna(row1['RFU']):
-                invalid_x += 1
-            elif 'RFU' in row2 and not pd.notna(row2['RFU']):
-                invalid_y += 1
+                if current_well is None or row1['Well'] != current_well:
+                    if rfus1_above or rfus1_below or rfus1_above_below or rfus1_below_above:
+                        well_name = well_names.get(current_well, current_well)
+                        plot_2d_scatter(well_name, threshold1, threshold2, output_dir, plot_count)
+                        rfus1_above = []
+                        rfus2_above = []
+                        rfus1_below = []
+                        rfus2_below = []
+                        rfus1_above_below = []
+                        rfus2_above_below = []
+                        rfus1_below_above = []
+                        rfus2_below_above = []
+                        invalid_x = invalid_y = ab_ab = ab_bl = bl_ab = bl_bl = 0
+                        plot_count += 1
+                    current_well = row1['Well']
+                    threshold1 = row1['Threshold']
+                    threshold2 = row2['Threshold']
 
-    if rfus1_above or rfus1_below or rfus1_above_below or rfus1_below_above:
-        well_name = well_names.get(current_well, current_well)
-        plot_2d_scatter(well_name, threshold1, threshold2, output_dir, plot_count)
-    
-    plot_event.set()
-    return True
+                if 'RFU' in row1 and pd.notna(row1['RFU']) and 'RFU' in row2 and pd.notna(row2['RFU']):
+                    if row1['RFU'] > threshold1 and row2['RFU'] > threshold2:
+                        rfus1_above.append(row1['RFU'])
+                        rfus2_above.append(row2['RFU'])
+                        ab_ab += 1
+                    elif row1['RFU'] > threshold1 and row2['RFU'] <= threshold2:
+                        rfus1_above_below.append(row1['RFU'])
+                        rfus2_above_below.append(row2['RFU'])
+                        ab_bl += 1
+                    elif row1['RFU'] <= threshold1 and row2['RFU'] > threshold2:
+                        rfus1_below_above.append(row1['RFU'])
+                        rfus2_below_above.append(row2['RFU'])
+                        bl_ab += 1
+                    else:
+                        rfus1_below.append(row1['RFU'])
+                        rfus2_below.append(row2['RFU'])
+                        bl_bl += 1
+                elif 'RFU' in row1 and not pd.notna(row1['RFU']):
+                    invalid_x += 1
+                elif 'RFU' in row2 and not pd.notna(row2['RFU']):
+                    invalid_y += 1
+
+        if rfus1_above or rfus1_below or rfus1_above_below or rfus1_below_above:
+            well_name = well_names.get(current_well, current_well)
+            plot_2d_scatter(well_name, threshold1, threshold2, output_dir, plot_count)
+        
+        plot_event.set()
+        return True
+
+    except Exception as e:
+        print(f"Error in plotting 2D data: {e}")
+        plot_event.set()
+        return False
 
 def register_plot2_callbacks(app):
     @app.callback(
@@ -184,21 +187,22 @@ def register_plot2_callbacks(app):
     @app.callback(
         [Output("plot-output-2d", "children"),
          Output("plot2d-status-store", "data")],
-        [Input("file1-dropdown", "value"),
-         Input("file2-dropdown", "value")],
-        [State("well-names-store", "data")],
+        Input("plot-default-button", "n_clicks"),
+        [State("file1-dropdown", "value"),
+         State("file2-dropdown", "value"),
+         State("well-names-store", "data")],
         prevent_initial_call=True
     )
-    def plot_2d(selected_file1, selected_file2, well_names):
+    def plot_2d(n_clicks, selected_file1, selected_file2, well_names):
         ctx = dash.callback_context
-        if not ctx.triggered:
+        if n_clicks == 0:
             return dash.no_update, dash.no_update
 
         if not selected_file1 or not selected_file2:
-            return dash.no_update, dash.no_update
+            return html.Div("Please select two files.", style={"color": "red"}), dash.no_update
 
         if not well_names:
-            return dash.no_update, dash.no_update
+            return html.Div("Well names not provided.", style={"color": "red"}), dash.no_update
 
         file_path1 = os.path.join('unzipped_dir', selected_file1)
         file_path2 = os.path.join('unzipped_dir', selected_file2)
@@ -210,8 +214,7 @@ def register_plot2_callbacks(app):
 
         threading.Thread(target=plot_data2, args=(file_path1, file_path2, well_names, plot_event)).start()
 
-        return (html.Div(f"Processing 2D plot for probes {probe_name1} and {probe_name2}...", id="plot2d-status", style={"color": "blue"}),
-                {"status": "processing", "file_paths": (file_path1, file_path2)})
+        return html.Div(f"Processing 2D plot for probes {probe_name1} and {probe_name2}...", id="plot2d-status", style={"color": "blue"}), {"status": "processing", "file_paths": (file_path1, file_path2)}
 
     @app.callback(
         Output("plot2d-status", "children"),

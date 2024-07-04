@@ -41,7 +41,7 @@ DPCR Automation is a software tool designed to streamline and automate the proce
 To start the DPCR Automation application, run the following command:
 ```sh
 python app.py
-``
+```
 This will launch the Dash server, and you can access the application by navigating to http://127.0.0.1:8050 in your web browser.
 ### Application Workflow
 1. **Upload Data**:

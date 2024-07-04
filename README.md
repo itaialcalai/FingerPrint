@@ -20,9 +20,7 @@ DPCR Automation is a software tool designed to streamline and automate the proce
 
 ## Installation
 
-You will need to launch the software from inside the `app` directory.
-
-An attempt to deploy the software as an executable and redirect output files was made, hence the presence of `plot1_actions_outputdir_change.py` and `pyinstaller.spec`. However, this was not fully developed due to certificate restraints.
+To install and run the DPCR Automation software, follow these steps:
 
 ### Prerequisites
 - Python 3.7 or higher
@@ -45,15 +43,18 @@ An attempt to deploy the software as an executable and redirect output files was
     ```sh
     pip install -r requirements.txt
     ```
-
-## Usage
+### Additional Information
+An attempt to deploy the software as an executable and redirect output files was made, resulting in the presence of `plot1_actions_outputdir_change.py` and `pyinstaller.spec`. However, this effort was not fully developed due to certificate restraints.
 
 ### Running the Application
+You will need to launch the software from inside the `app` directory.
+
 To start the DPCR Automation application, run the following command:
 ```sh
 python app.py
 ```
 This will launch the Dash server, and you can access the application by navigating to http://127.0.0.1:8050 in your web browser.
+
 ### Application Workflow
 1. **Upload Data**:
     - Click on "Select Files" or drag and drop your zipped directory containing dPCR data files into the upload area.

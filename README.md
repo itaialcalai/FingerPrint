@@ -35,17 +35,14 @@ To install and run the DPCR Automation software, follow these steps:
 ### Installation Steps
 1. Clone the repository:
     ```sh
-    git clone https://github.com/yourusername/dpcr-automation.git
-    cd dpcr-automation
+    git clone https://github.com/yourusername/FingerPrint.git
+    cd FingerPrint
     ```
 
 2. Install the required packages:
     ```sh
     pip install -r requirements.txt
     ```
-### Additional Information
-An attempt to deploy the software as an executable and redirect output files was made, resulting in the presence of `plot1_actions_outputdir_change.py` and `pyinstaller.spec`. However, this effort was not fully developed due to certificate restraints.
-
 ### Running the Application
 You will need to launch the software from inside the `app` directory.
 
@@ -54,6 +51,8 @@ To start the DPCR Automation application, run the following command:
 python app.py
 ```
 This will launch the Dash server, and you can access the application by navigating to http://127.0.0.1:8050 in your web browser.
+### Additional Information
+An attempt to deploy the software as an executable and redirect output files was made, resulting in the presence of `plot1_actions_outputdir_change.py` and `pyinstaller.spec`. However, this effort was not fully developed due to certificate restraints.
 
 ### Application Workflow
 1. **Upload Data**:

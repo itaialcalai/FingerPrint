@@ -43,7 +43,7 @@ To install and run the DPCR Automation software, follow these steps:
     pip install -r requirements.txt
     ```
 ### Running the Application
-You will need to launch the software from inside the `app` directory.
+You will need to launch the software from inside the `app` directory - `cd app`.
 
 To start the DPCR Automation application, run the following command:
 ```sh

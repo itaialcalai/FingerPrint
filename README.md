@@ -67,7 +67,7 @@ An attempt to deploy the software as an executable and redirect output files was
     - Choose the type of plot (1D, 2D, or 3D) by clicking the corresponding button.
     - Select the files to be used for plotting.
     - For 1D plots, choose the threshold type (Default or Calibrated).
-    - The application will process the data and display the plots.
+    - The application will process the data and place the plots in a new corresponding directory within the app directory.
 
 ## Code Explanation
 

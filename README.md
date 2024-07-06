@@ -34,7 +34,7 @@ To install and run the DPCR Automation software, follow these steps:
 ### Installation Steps
 1. Clone the repository. In the command prompt:
     ```sh
-    git clone https://github.com/yourusername/FingerPrint.git
+    git clone https://github.com/itaialcalai/FingerPrint.git
     cd FingerPrint
     ```
 

@@ -229,7 +229,7 @@ def plot_data2(file_path1, file_path2, well_data, plot_event):
         return True
 
     except Exception as e:
-        print(f"Error in plotting 2D data: {e}")
+        # print(f"Error in plotting 2D data: {e}")
         plot_event.set()
         return False
 

@@ -1,5 +1,10 @@
 # Itai Alcalai
-# plot1_actions.py
+# plot1_actions_outputdir_change.py
+
+# UNDER CONSTRUCTION
+# Once the app will have a certificate we can redirect output and launch it as stand alone.
+#########################
+
 
 import dash
 from dash.dependencies import Input, Output, State
